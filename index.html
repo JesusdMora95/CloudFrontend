@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Cliente para la API de S3</title>
+    <style>
+        * {
+            margin: 2;
+            padding: 1;
+            box-sizing: border-box;
+            margin: auto;
+            border-radius: 5px;
+
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            background-image: url('background.jpg');
+            background-size: cover;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            text-align: center;
+            margin-top: 50px;
+            background-color: rgba(255, 255, 255, 0.3); /* 70% opacity */
+            width: 70%;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            margin: 0 auto;
+
+        }
+
+        button {
+            padding: 10px 20px;
+            background-color: #4CAF50; /* Green */
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            border-radius: 10px;
+        }
+
+        button:hover {
+            background-color: #45a049; /* Slightly darker green on hover */
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        label.upload-label {
+            padding: 10px 20px;
+            background-color: #4CAF50; /* Green */
+            color: #fff;
+            cursor: pointer;
+            border-radius: 5px;
+            display: inline-block;
+            margin-top: 10px;
+        }
+
+        table {
+            background-color: rgba(255, 255, 255, 0.7); /* 70% opacity */
+            border-radius: 10px;
+            border-color: bisque;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            width: 100%;
+        }
+        /* Estilos para el popup de vista previa */
+        .preview-popup, .pdf-container, .gif-preview-popup {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .popup-content {
+            background: #fff;
+            padding: 20px;
+            border-radius: 5px;
+            display: flex;
+            flex-direction: column;
+            max-width: 80%;
+            max-height: 80%;
+        }
+
+        .close-popup {
+            align-self: flex-end;
+            cursor: pointer;
+        }
+
+        .preview-image, .gif-preview-image {
+            max-width: 100%;
+            max-height: 80%;
+        }
+
+        .preview-txt, .gif-preview-txt {
+            font-family: monospace;
+            white-space: pre;
+            max-width: 100%;
+            max-height: 80%;
+            overflow: auto;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h2>Subir Archivo a S3</h2>
+        <input type="file" id="fileInput">
+        <button onclick="uploadFile()">Subir Archivo</button>
+    </div>
+
+    <div class="container">
+        <h2>Listar Archivos en S3</h2>
+        <!--    
+        <button onclick="listFiles()">Listar Archivos</button>
+    -->
+        <ul id="fileList"></ul>
+
+    </div>
+
+    <!-- Popup para vista previa de GIF -->
+    <div class="gif-preview-popup" id="gif-preview-popup">
+        <div class="popup-content" id="gif-preview-content">
+            <span class="close-popup" id="close-gif-preview" title="Cerrar">&times;</span>
+            <h2>Vista Previa de GIF</h2>
+            <img class="gif-preview-image" id="gif-preview-image" src="" alt="Vista Previa de GIF">
+        </div>
+    </div>
+
+    <!-- Popup para vista previa de archivos -->
+    <div class="preview-popup" id="preview-popup">
+        <div class="popup-content" id="preview-content">
+            <span class="close-popup" id="close-preview" title="Cerrar">&times;</span>
+            <h2>Vista Previa de Archivo</h2>
+            <img class="preview-image" id="preview-image" src="" alt="Vista Previa">
+            <pre class="preview-txt" id="preview-txt"></pre>
+        </div>
+    </div>
+
+    <!-- Visor de PDF (mismos estilos que el popup de vista previa) -->
+    <div class="pdf-container" id="pdf-container">
+        <div class="popup-content" id="pdf-content">
+            <span class="close-popup" id="close-pdf-preview" title="Cerrar">&times;</span>
+            <h2>Vista Previa de PDF</h2>
+            <iframe class="preview-image" id="pdf-view" src="" frameborder="0"></iframe>
+        </div>
+    </div>
+
+    <script src="script.js">
+        listFiles();
+        function uploadFile() {
+
+            const fileInput = document.getElementById('fileInput');
+            let fileName = ""; // Declarar fileName aquí
+            if (fileInput.files.length > 0) {
+                const fileName = fileInput.files[0].name;
+                alert(`Nombre del archivo seleccionado: ${fileName}`);
+            }
+            // Nombre del archivo que deseas subir a S3
+            const key = fileName;
+            const file = fileInput.files[0];
+
+            if (file) {
+                const formData = new FormData();
+                formData.append("file", fileInput.files[0]);
+
+                fetch("http://127.0.0.1:8000/upload/", {
+                    method: "POST",
+                    body: formData
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        alert(data.message);
+
+                    })
+                    .catch(error => {
+                        alert("Error: " + error.message);
+                    });
+                listFiles();
+            }
+
+        }
+
+        async function listFiles() {
+            try {
+                const response = await fetch("http://127.0.0.1:8000/list/");
+                const data = await response.json();
+
+                const fileList = document.getElementById("fileList");
+                fileList.innerHTML = "";
+
+                data.files.forEach(file => {
+                    const listItem = document.createElement("li");
+                    listItem.textContent = file;
+                    fileList.appendChild(listItem);
+                });
+            } catch (error) {
+                alert("Error: " + error.message);
+            }
+        }
+
+        function deleteFile() {
+            alert('brra');
+            const deleteFileName = document.getElementById("deleteFileName").value;
+
+            fetch(`http://127.0.0.1:8000/delete/${deleteFileName}`, {
+                method: "DELETE"
+            })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                })
+                .catch(error => {
+                    alert("Error: " + error.message);
+                });
+        }
+    </script>
+</body>
+
+</html>
